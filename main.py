@@ -55,13 +55,33 @@ def get_profile_info(driver, profile_url):
     
     emails = re.findall(email_pattern, page_text)
     phones = re.findall(phone_pattern, page_text)
+    
+    followers = "Not found"
+    following = "Not found"
+
+    try:
+        meta_tag = soup.find('meta', property='og:description')
+        if meta_tag:
+            description = meta_tag.get('content')
+            followers_match = re.search(r'([\d,.]+[mkMGTPEZY]?)\s+Followers', description)
+            if followers_match:
+                followers = followers_match.group(1)
+
+            following_match = re.search(r'([\d,.]+[mkMGTPEZY]?)\s+Following', description)
+            if following_match:
+                following = following_match.group(1)
+    except:
+        pass
+
 
     return {
         "url": profile_url,
         "name": name,
         "website": website,
         "emails": list(set(emails)),
-        "phones": list(set(phones))
+        "phones": list(set(phones)),
+        "followers": followers,
+        "following": following
     }
 
 if __name__ == "__main__":
@@ -89,6 +109,8 @@ if __name__ == "__main__":
         try:
             print(f"  Name: {lead_data['name']}")
             print(f"  Website: {lead_data['website']}")
+            print(f"  Followers: {lead_data['followers']}")
+            print(f"  Following: {lead_data['following']}")
             print(f"  Emails: {', '.join(lead_data['emails'])}")
             print(f"  Phones: {', '.join(lead_data['phones'])}")
         except TypeError as e:
