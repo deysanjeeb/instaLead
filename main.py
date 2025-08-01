@@ -18,7 +18,7 @@ def get_instagram_links(driver, query, num_pages):
         results = driver.find_elements(By.CSS_SELECTOR, "a[href*='instagram.com']")
         for result in results:
             href = result.get_attribute("href")
-            if href and "google.com" not in href:
+            if href and "google.com" not in href and ".com/p/" not in href:
                 links.append(href)
         try:
             next_button = driver.find_element(By.ID, "pnnext")
@@ -93,6 +93,7 @@ if __name__ == "__main__":
     num_pages = int(input("Enter the number of Google pages to scrape: "))
 
     insta_links = get_instagram_links(driver, query, num_pages)
+    insta_links = sorted(list(set(insta_links)))
     
     print(f"Found {len(insta_links)} Instagram profiles.")
 
