@@ -127,18 +127,25 @@ if __name__ == "__main__":
     for link in insta_links:
         print(f"Scraping {link}...")
         lead_data = get_profile_info(driver, link)
-        all_leads.append(lead_data)
-        try:
-            print(f"  Name: {lead_data['name']}")
-            print(f"  Website: {lead_data['website']}")
-            print(f"  Followers: {lead_data['followers']}")
-            print(f"  Following: {lead_data['following']}")
-            print(f"  Emails: {', '.join(lead_data['emails'])}")
-            print(f"  Phones: {', '.join(lead_data['phones'])}")
-        except TypeError as e:
-            print(f"  Error processing data for this profile: {e}")
-        except Exception as e:
-            print(f"  An unexpected error occurred: {e}")
+        if (
+            lead_data["name"] != "Not found"
+            and lead_data["followers"] != "Not found"
+            and lead_data["following"] != "Not found"
+        ):
+            all_leads.append(lead_data)
+            try:
+                print(f"  Name: {lead_data['name']}")
+                print(f"  Website: {lead_data['website']}")
+                print(f"  Followers: {lead_data['followers']}")
+                print(f"  Following: {lead_data['following']}")
+                print(f"  Emails: {', '.join(lead_data['emails'])}")
+                print(f"  Phones: {', '.join(lead_data['phones'])}")
+            except TypeError as e:
+                print(f"  Error processing data for this profile: {e}")
+            except Exception as e:
+                print(f"  An unexpected error occurred: {e}")
+        else:
+            print("  Skipping profile due to missing name, followers, or following.")
         print("-" * 20)
 
     # Save to CSV
