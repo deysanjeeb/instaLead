@@ -8,39 +8,45 @@ import csv
 from bs4 import BeautifulSoup
 
 
-def get_instagram_links(driver, query, num_pages):
-    """Scrapes Google for Instagram profile links."""
-    driver.get("https://www.google.com")
-    search_box = driver.find_element(By.NAME, "q")
-    search_box.send_keys(query + " site:instagram.com")
-    search_box.send_keys(Keys.RETURN)
-
+def get_instagram_links(driver, query, start_page, end_page):
+    """Scrapes Google for Instagram profile links within a specified page range."""
     links = []
-    for page in range(num_pages):
+    for page in range(start_page, end_page + 1):
+        # Construct the Google search URL for the specific page
+        if page == 1:
+            search_url = f"https://www.google.com/search?q={query.replace(' ', '+')}+site:instagram.com"
+        else:
+            start_index = (page - 1) * 10
+            search_url = f"https://www.google.com/search?q={query.replace(' ', '+')}+site:instagram.com&start={start_index}"
+
+        driver.get(search_url)
         time.sleep(2)
+
         results = driver.find_elements(By.CSS_SELECTOR, "a[href*='instagram.com']")
         for result in results:
             href = result.get_attribute("href")
-            if href and "google.com" not in href and ".com/p/" not in href and ".com/reel/" not in href:
+            if (
+                href
+                and "google.com" not in href
+                and ".com/p/" not in href
+                and ".com/reel/" not in href
+            ):
                 links.append(href)
-        try:
-            next_button = driver.find_element(By.ID, "pnnext")
-            next_button.click()
-        except:
-            break
+
     return links
 
 
 def parse_count(count_str):
     """Parses abbreviated follower/following counts (e.g., 10.5k, 1.2m)."""
-    count_str = count_str.lower().replace(',', '')
-    if 'k' in count_str:
-        return int(float(count_str.replace('k', '')) * 1000)
-    if 'm' in count_str:
-        return int(float(count_str.replace('m', '')) * 1000000)
+    count_str = count_str.lower().replace(",", "")
+    if "k" in count_str:
+        return int(float(count_str.replace("k", "")) * 1000)
+    if "m" in count_str:
+        return int(float(count_str.replace("m", "")) * 1000000)
     if count_str.isdigit():
         return int(count_str)
-    return count_str # Return original string if not a recognized format
+    return count_str  # Return original string if not a recognized format
+
 
 def get_profile_info(driver, profile_url):
     """Extracts information from an Instagram profile using Selenium and BeautifulSoup."""
@@ -78,15 +84,15 @@ def get_profile_info(driver, profile_url):
     following = "Not found"
 
     try:
-        followers_link = soup.find('a', href=lambda href: href and 'followers' in href)
+        followers_link = soup.find("a", href=lambda href: href and "followers" in href)
         if followers_link:
-            followers_span = followers_link.find('span', {'class': 'x5n08af'})
+            followers_span = followers_link.find("span", {"class": "x5n08af"})
             if followers_span:
-                followers = parse_count(followers_span.get('title', ''))
+                followers = parse_count(followers_span.get("title", ""))
 
-        following_link = soup.find('a', href=lambda href: href and 'following' in href)
+        following_link = soup.find("a", href=lambda href: href and "following" in href)
         if following_link:
-            following_span = following_link.find('span', {'class': 'x5n08af'})
+            following_span = following_link.find("span", {"class": "x5n08af"})
             if following_span:
                 following = parse_count(following_span.get_text(strip=True))
 
@@ -111,9 +117,10 @@ if __name__ == "__main__":
     driver = webdriver.Chrome(options=chrome_options)
 
     query = input("Enter your search query (e.g., 'real estate agents in new york'): ")
-    num_pages = int(input("Enter the number of Google pages to scrape: "))
+    start_page = int(input("Enter the starting page number: "))
+    end_page = int(input("Enter the ending page number: "))
 
-    insta_links = get_instagram_links(driver, query, num_pages)
+    insta_links = get_instagram_links(driver, query, start_page, end_page)
     insta_links = sorted(list(set(insta_links)))
 
     print(f"Found {len(insta_links)} Instagram profiles.")
