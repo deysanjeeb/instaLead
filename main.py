@@ -31,6 +31,17 @@ def get_instagram_links(driver, query, num_pages):
     return links
 
 
+def parse_count(count_str):
+    """Parses abbreviated follower/following counts (e.g., 10.5k, 1.2m)."""
+    count_str = count_str.lower().replace(',', '')
+    if 'k' in count_str:
+        return int(float(count_str.replace('k', '')) * 1000)
+    if 'm' in count_str:
+        return int(float(count_str.replace('m', '')) * 1000000)
+    if count_str.isdigit():
+        return int(count_str)
+    return count_str # Return original string if not a recognized format
+
 def get_profile_info(driver, profile_url):
     """Extracts information from an Instagram profile using Selenium and BeautifulSoup."""
     driver.get(profile_url)
@@ -67,21 +78,20 @@ def get_profile_info(driver, profile_url):
     following = "Not found"
 
     try:
-        meta_tag = soup.find("meta", property="og:description")
-        if meta_tag:
-            description = meta_tag.get("content")
-            followers_match = re.search(
-                r"([\d,.]+[mkMGTPEZY]?)\s+Followers", description
-            )
-            if followers_match:
-                followers = followers_match.group(1)
+        followers_link = soup.find('a', href=lambda href: href and 'followers' in href)
+        if followers_link:
+            followers_span = followers_link.find('span', {'class': 'x5n08af'})
+            if followers_span:
+                followers = parse_count(followers_span.get('title', ''))
 
-            following_match = re.search(
-                r"([\d,.]+[mkMGTPEZY]?)\s+Following", description
-            )
-            if following_match:
-                following = following_match.group(1)
-    except:
+        following_link = soup.find('a', href=lambda href: href and 'following' in href)
+        if following_link:
+            following_span = following_link.find('span', {'class': 'x5n08af'})
+            if following_span:
+                following = parse_count(following_span.get_text(strip=True))
+
+    except Exception as e:
+        print(f"Error parsing followers/following: {e}")
         pass
 
     return {
