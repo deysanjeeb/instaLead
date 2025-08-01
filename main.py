@@ -4,6 +4,9 @@ from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.chrome.options import Options
 import time
 import re
+import csv
+from bs4 import BeautifulSoup
+
 
 def get_instagram_links(driver, query, num_pages):
     """Scrapes Google for Instagram profile links."""
@@ -18,7 +21,7 @@ def get_instagram_links(driver, query, num_pages):
         results = driver.find_elements(By.CSS_SELECTOR, "a[href*='instagram.com']")
         for result in results:
             href = result.get_attribute("href")
-            if href and "google.com" not in href and ".com/p/" not in href:
+            if href and "google.com" not in href and ".com/p/" not in href and ".com/reel/" not in href:
                 links.append(href)
         try:
             next_button = driver.find_element(By.ID, "pnnext")
@@ -27,7 +30,6 @@ def get_instagram_links(driver, query, num_pages):
             break
     return links
 
-from bs4 import BeautifulSoup
 
 def get_profile_info(driver, profile_url):
     """Extracts information from an Instagram profile using Selenium and BeautifulSoup."""
@@ -51,28 +53,36 @@ def get_profile_info(driver, profile_url):
     # Regex to find emails and phone numbers in the page text
     page_text = soup.get_text()
     email_pattern = r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}"
-    phone_pattern = r"(?:\+?\d{1,4}?[-.\s]?)?(?:\(?\d{1,3}?\)?[-.\s]?)?[\d\s-]{7,}"
-    
+    phone_pattern = r"(?:\+?\d{1,3}[-.\s]?)?(?:\(?\d{3}\)?[-.\s]?)?\d{3}[-.\s]?\d{4}"
+
     emails = re.findall(email_pattern, page_text)
-    phones = re.findall(phone_pattern, page_text)
-    
+
+    # Find potential phone numbers and filter for 10-digit numbers
+    potential_phones = re.findall(phone_pattern, page_text)
+    phones = [
+        phone for phone in potential_phones if len(re.sub(r"\D", "", phone)) == 10
+    ]
+
     followers = "Not found"
     following = "Not found"
 
     try:
-        meta_tag = soup.find('meta', property='og:description')
+        meta_tag = soup.find("meta", property="og:description")
         if meta_tag:
-            description = meta_tag.get('content')
-            followers_match = re.search(r'([\d,.]+[mkMGTPEZY]?)\s+Followers', description)
+            description = meta_tag.get("content")
+            followers_match = re.search(
+                r"([\d,.]+[mkMGTPEZY]?)\s+Followers", description
+            )
             if followers_match:
                 followers = followers_match.group(1)
 
-            following_match = re.search(r'([\d,.]+[mkMGTPEZY]?)\s+Following', description)
+            following_match = re.search(
+                r"([\d,.]+[mkMGTPEZY]?)\s+Following", description
+            )
             if following_match:
                 following = following_match.group(1)
     except:
         pass
-
 
     return {
         "url": profile_url,
@@ -81,8 +91,9 @@ def get_profile_info(driver, profile_url):
         "emails": list(set(emails)),
         "phones": list(set(phones)),
         "followers": followers,
-        "following": following
+        "following": following,
     }
+
 
 if __name__ == "__main__":
     chrome_options = Options()
@@ -94,7 +105,7 @@ if __name__ == "__main__":
 
     insta_links = get_instagram_links(driver, query, num_pages)
     insta_links = sorted(list(set(insta_links)))
-    
+
     print(f"Found {len(insta_links)} Instagram profiles.")
 
     print("\n--- Links to be Scraped ---")
@@ -119,5 +130,15 @@ if __name__ == "__main__":
         except Exception as e:
             print(f"  An unexpected error occurred: {e}")
         print("-" * 20)
+
+    # Save to CSV
+    if all_leads:
+        filename = query.replace(" ", "_") + ".csv"
+        with open(filename, "w", newline="", encoding="utf-8") as csvfile:
+            fieldnames = all_leads[0].keys()
+            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerows(all_leads)
+        print(f"\nSuccessfully saved {len(all_leads)} leads to {filename}")
 
     # The browser is not closed, as it's a shared session.
