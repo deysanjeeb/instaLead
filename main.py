@@ -15,10 +15,10 @@ def get_instagram_links(driver, query, start_page, end_page):
     for page in range(start_page, end_page + 1):
         # Construct the Google search URL for the specific page
         if page == 1:
-            search_url = f"https://www.google.com/search?q={query.replace(' ', '+')}+site:instagram.com"
+            search_url = f"https://www.google.com/search?q={query.replace(' ', '+')}+site:instagram.com&num=100"
         else:
             start_index = (page - 1) * 10
-            search_url = f"https://www.google.com/search?q={query.replace(' ', '+')}+site:instagram.com&start={start_index}"
+            search_url = f"https://www.google.com/search?q={query.replace(' ', '+')}+site:instagram.com&start={start_index}&num=100"
 
         driver.get(search_url)
         time.sleep(2)
@@ -30,7 +30,7 @@ def get_instagram_links(driver, query, start_page, end_page):
                 href
                 and "google.com" not in href
                 and ".com/p/" not in href
-                and ".com/reel/" not in href
+                and "/reel/" not in href
             ):
                 links.append(href)
 
