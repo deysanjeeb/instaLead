@@ -5,6 +5,7 @@ from selenium.webdriver.chrome.options import Options
 import time
 import re
 import csv
+import os
 from bs4 import BeautifulSoup
 
 
@@ -158,10 +159,15 @@ if __name__ == "__main__":
     # Save to CSV
     if all_leads:
         filename = query.replace(" ", "_") + ".csv"
-        with open(filename, "w", newline="", encoding="utf-8") as csvfile:
+        file_exists = os.path.isfile(filename)
+
+        with open(filename, "a", newline="", encoding="utf-8") as csvfile:
             fieldnames = all_leads[0].keys()
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-            writer.writeheader()
+
+            if not file_exists:
+                writer.writeheader()
+
             writer.writerows(all_leads)
         print(f"\nSuccessfully saved {len(all_leads)} leads to {filename}")
 
