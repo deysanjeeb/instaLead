@@ -1,0 +1,12 @@
+[project]
+name = "instalead"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "bs4>=0.0.2",
+    "grist-api>=0.1.1",
+    "load-dotenv>=0.1.0",
+    "selenium>=4.34.2",
+]
