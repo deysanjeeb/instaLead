@@ -7,6 +7,12 @@ import re
 import csv
 import os
 from bs4 import BeautifulSoup
+import requests
+from load_dotenv import load_dotenv
+
+load_dotenv()
+GRIST_API_KEY = os.getenv("GRIST_API_KEY")
+GRIST_DOC_ID = os.getenv("GRIST_DOC_ID")
 
 
 def get_instagram_links(driver, query, start_page, end_page):
@@ -29,8 +35,9 @@ def get_instagram_links(driver, query, start_page, end_page):
             if (
                 href
                 and "google.com" not in href
-                and ".com/p/" not in href
+                and "/p/" not in href
                 and "/reel/" not in href
+                and "#:~:text=" not in href
             ):
                 links.append(href)
 
@@ -101,15 +108,75 @@ def get_profile_info(driver, profile_url):
         print(f"Error parsing followers/following: {e}")
         pass
 
+    unique_emails = list(set(emails))
+
+    if unique_emails:
+        if len(unique_emails) >= 2:
+            print("Multiple emails found, joining them.")
+            unique_emails = ", ".join(unique_emails)
+        else:
+            unique_emails = unique_emails[0]
+    else:
+        unique_emails = ""
+
+    unique_phones = list(set(phones))
+    if unique_phones:
+        if len(unique_phones) >= 2:
+            print("Multiple phones found, joining them.")
+            unique_phones = ", ".join(unique_phones)
+        else:
+            unique_phones = unique_phones[0]
+    else:
+        unique_phones = ""
+
     return {
         "url": profile_url,
         "name": name,
         "website": website,
-        "emails": list(set(emails)),
-        "phones": list(set(phones)),
+        "emails": unique_emails,
+        "phones": unique_phones,
         "followers": followers,
         "following": following,
     }
+
+
+def upload_to_grist(api_key, server, doc_id, table_name, data):
+    """Uploads data to a Grist database using REST API."""
+    headers = {"Authorization": f"Bearer {api_key}"}
+
+    try:
+        # List tables to check if the table exists
+        list_tables_url = f"{server}/api/docs/{doc_id}/tables"
+        response = requests.get(list_tables_url, headers=headers)
+        response.raise_for_status()
+        tables = response.json()["tables"]
+        print(tables)
+        # Capitalize the first letter of the table name
+        table_name = table_name.capitalize()
+
+        if table_name not in [t["id"] for t in tables]:
+            print(f"Table '{table_name}' not found in Grist document. Creating it...")
+            create_table_url = f"{server}/api/docs/{doc_id}/tables"
+            columns = [{"id": key} for key in data[0].keys()]
+            payload = {"tables": [{"id": table_name, "columns": columns}]}
+            response = requests.post(create_table_url, headers=headers, json=payload)
+            response.raise_for_status()
+            print(f"Table '{table_name}' created successfully.")
+
+        # Prepare records for upload
+        records_to_upload = [{"fields": item} for item in data]
+        add_records_url = f"{server}/api/docs/{doc_id}/tables/{table_name}/records"
+        response = requests.post(
+            add_records_url, headers=headers, json={"records": records_to_upload}
+        )
+        response.raise_for_status()
+
+        print(f"Successfully uploaded {len(data)} records to Grist.")
+
+    except requests.exceptions.RequestException as e:
+        print(f"An error occurred while communicating with Grist: {e}")
+    except Exception as e:
+        print(f"An unexpected error occurred during Grist upload: {e}")
 
 
 if __name__ == "__main__":
@@ -146,8 +213,8 @@ if __name__ == "__main__":
                 print(f"  Website: {lead_data['website']}")
                 print(f"  Followers: {lead_data['followers']}")
                 print(f"  Following: {lead_data['following']}")
-                print(f"  Emails: {', '.join(lead_data['emails'])}")
-                print(f"  Phones: {', '.join(lead_data['phones'])}")
+                print(f"  Emails: {lead_data['emails']}")
+                print(f"  Phones: {lead_data['phones']}")
             except TypeError as e:
                 print(f"  Error processing data for this profile: {e}")
             except Exception as e:
@@ -170,5 +237,14 @@ if __name__ == "__main__":
 
             writer.writerows(all_leads)
         print(f"\nSuccessfully saved {len(all_leads)} leads to {filename}")
+
+    # Upload to Grist
+    # upload_grist = input("\nUpload to Grist? (y/n): ").lower()
+    # if upload_grist == "y":
+    grist_server = "https://docs.getgrist.com"
+    grist_table_name = query.replace(" ", "_")
+    upload_to_grist(
+        GRIST_API_KEY, grist_server, GRIST_DOC_ID, grist_table_name, all_leads
+    )
 
     # The browser is not closed, as it's a shared session.
