@@ -73,7 +73,7 @@ def get_profile_info(driver, profile_url):
         # The website is often a link with a 'rel' attribute containing 'me'
         website = soup.find("a", rel=lambda r: r and "me" in r).get_text()
     except:
-        website = "Not found"
+        website = ""
 
     # Regex to find emails and phone numbers in the page text
     page_text = soup.get_text()
@@ -150,7 +150,6 @@ def upload_to_grist(api_key, server, doc_id, table_name, data):
         response = requests.get(list_tables_url, headers=headers)
         response.raise_for_status()
         tables = response.json()["tables"]
-        print(tables)
         # Capitalize the first letter of the table name
         table_name = table_name.capitalize()
 
