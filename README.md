@@ -1,42 +1,47 @@
 # InstaLead
 
-Lead discovery via Google search → Instagram profile parsing, exporting to CSV and optionally uploading to Grist.
+Discover Instagram leads by searching Google, parsing profile pages, exporting to CSV, and optionally uploading to Grist.
+
+## What it does
+- Searches Google for Instagram profile URLs based on your query.
+- Scrapes each profile for name, website, followers, following, emails, and phones.
+- Appends results to a CSV in the repo root.
+- Uploads rows to Grist when credentials are available.
 
 ## Requirements
 - Python 3.12+
 - Google Chrome installed
-- ChromeDriver managed by Selenium (bundled in Selenium 4 typically) and a Chrome instance running with remote debugging on port 9222
+- Chrome running with remote debugging enabled on port 9222
 
 ## Setup
 1) Create and activate a virtual environment
    - `python3 -m venv venv && source venv/bin/activate`
 2) Install dependencies
    - `pip install -r requirements.txt`
-   - Or using uv: `uv sync`
-3) Configure environment (optional but recommended for Grist upload)
-   - Create a `.env` file in the project root:
+   - Or: `uv sync`
+3) (Optional) Configure Grist
+   - Create `.env` in the project root:
      - `GRIST_API_KEY=...`
      - `GRIST_DOC_ID=...`
 
 ## Start Chrome for Selenium
-Run Chrome with remote debugging (keep this window open while scraping):
+Run Chrome with remote debugging and keep it open while scraping:
 - Linux: `google-chrome --remote-debugging-port=9222 --user-data-dir=/tmp/selenium`
 - macOS: `/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome --remote-debugging-port=9222 --user-data-dir=/tmp/selenium`
 - Windows (PowerShell): `"C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe" --remote-debugging-port=9222 --user-data-dir=C:\\selenium`
 
-## Usage
-Run the scraper and follow prompts for query and page range:
+## Run
 - `python main.py`
 
-The script will:
-- Search Google for Instagram profiles, filter links, and parse each profile.
-- Extract name, website, followers, following, emails, and phones.
-- Write results to a CSV named after your query (e.g., `real_estate_agents_in_san_diego.csv`).
-- Attempt to upload results to Grist if `GRIST_API_KEY` and `GRIST_DOC_ID` are provided.
+Follow the prompts for your query and page range. Output is written to a CSV named after the query, for example `real_estate_agents_in_san_diego.csv`.
 
-Notes
-- CSV files and `.env` are git-ignored by default.
-- Respect Google/Instagram Terms of Service and rate limits.
+## Output
+- CSV files are written to the repo root.
+- `.env` and CSVs are git-ignored by default.
 
-## Contributing
-See `AGENTS.md` for project structure, coding style, testing, and PR guidelines.
+## Notes
+- Respect Google/Instagram terms of service and rate limits.
+- Grist uploads use `https://docs.getgrist.com` by default.
+
+## Project guide
+See `AGENTS.md` for project structure, coding style, and testing guidance.

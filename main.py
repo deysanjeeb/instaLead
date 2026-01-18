@@ -224,7 +224,9 @@ if __name__ == "__main__":
 
     # Save to CSV
     if all_leads:
-        filename = query.replace(" ", "_") + ".csv"
+        output_dir = "scraped_data"
+        os.makedirs(output_dir, exist_ok=True)
+        filename = os.path.join(output_dir, f"{query.replace(' ', '_')}.csv")
         file_exists = os.path.isfile(filename)
 
         with open(filename, "a", newline="", encoding="utf-8") as csvfile:
