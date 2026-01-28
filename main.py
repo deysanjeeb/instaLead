@@ -35,8 +35,6 @@ def get_instagram_links(driver, query, start_page, end_page):
             if (
                 href
                 and "google.com" not in href
-                and "/p/" not in href
-                and "/reel/" not in href
                 and "#:~:text=" not in href
             ):
                 links.append(href)
@@ -140,6 +138,87 @@ def get_profile_info(driver, profile_url):
     }
 
 
+def is_post_url(url):
+    """Checks if a URL points to an Instagram post or reel."""
+    return any(token in url for token in ("/p/", "/reel/", "/tv/"))
+
+
+def is_profile_path(path):
+    """Checks if a path looks like an Instagram profile path."""
+    if not path or not path.startswith("/"):
+        return False
+    parts = path.strip("/").split("/")
+    if len(parts) != 1:
+        return False
+    if parts[0] in {
+        "explore",
+        "p",
+        "reel",
+        "reels",
+        "tv",
+        "stories",
+        "accounts",
+        "about",
+        "developer",
+        "terms",
+        "privacy",
+    }:
+        return False
+    return True
+
+
+def resolve_profile_url(driver, url):
+    """Resolves post/reel URLs to their profile URLs."""
+    if not is_post_url(url):
+        return url
+
+    driver.get(url)
+    time.sleep(3)
+    try:
+        profile_el = driver.find_element(
+            By.XPATH,
+            "/html/body/div[1]/div/div/div[2]/div/div/div[1]/div[1]/div[2]/section/main/div/div[1]/div/div[2]/div/div[2]/div/div[1]/div/div[2]/div/span/div/div/span[1]/span/div/a/div/div/span",
+        )
+        profile_el.click()
+        time.sleep(2)
+        return driver.current_url
+    except Exception:
+        pass
+    soup = BeautifulSoup(driver.page_source, "html.parser")
+
+    profile_url = None
+    og_title = soup.find("meta", property="og:title")
+    if og_title and og_title.get("content"):
+        match = re.match(
+            r"^([A-Za-z0-9._]+)\s+on Instagram", og_title["content"].strip()
+        )
+        if match:
+            profile_url = f"https://www.instagram.com/{match.group(1)}/"
+
+    if not profile_url:
+        header = soup.find("header")
+        if header:
+            for anchor in header.find_all("a", href=True):
+                href = anchor["href"]
+                if is_profile_path(href):
+                    profile_url = f"https://www.instagram.com{href}"
+                    break
+
+    if not profile_url:
+        match = re.search(
+            r"https://www\.instagram\.com/([A-Za-z0-9._]+)/", driver.page_source
+        )
+        if match:
+            profile_url = f"https://www.instagram.com/{match.group(1)}/"
+
+    if not profile_url:
+        return None
+
+    driver.get(profile_url)
+    time.sleep(2)
+    return driver.current_url or profile_url
+
+
 def upload_to_grist(api_key, server, doc_id, table_name, data):
     """Uploads data to a Grist database using REST API."""
     headers = {"Authorization": f"Bearer {api_key}"}
@@ -190,15 +269,27 @@ if __name__ == "__main__":
     insta_links = get_instagram_links(driver, query, start_page, end_page)
     insta_links = sorted(list(set(insta_links)))
 
-    print(f"Found {len(insta_links)} Instagram profiles.")
+    print(f"Found {len(insta_links)} Instagram links.")
 
-    print("\n--- Links to be Scraped ---")
+    resolved_links = []
+    seen_profiles = set()
     for link in insta_links:
+        profile_url = resolve_profile_url(driver, link)
+        if not profile_url:
+            print(f"Skipping {link} (could not resolve profile).")
+            continue
+        if profile_url not in seen_profiles:
+            resolved_links.append(profile_url)
+            seen_profiles.add(profile_url)
+
+    print(f"Resolved {len(resolved_links)} unique profile links.")
+    print("\n--- Profiles to be Scraped ---")
+    for link in resolved_links:
         print(link)
     print("---------------------------\n")
 
     all_leads = []
-    for link in insta_links:
+    for link in resolved_links:
         print(f"Scraping {link}...")
         lead_data = get_profile_info(driver, link)
         if (
