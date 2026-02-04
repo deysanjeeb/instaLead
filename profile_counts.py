@@ -11,6 +11,8 @@ import time
 from bs4 import BeautifulSoup
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.service import Service
+from webdriver_manager.chrome import ChromeDriverManager
 
 
 def parse_count(count_str: str):
@@ -57,7 +59,8 @@ def build_driver(debugger_address: str) -> webdriver.Chrome:
     """Attach Selenium to an existing Chrome instance."""
     chrome_options = Options()
     chrome_options.add_experimental_option("debuggerAddress", debugger_address)
-    return webdriver.Chrome(options=chrome_options)
+    service = Service(ChromeDriverManager().install())
+    return webdriver.Chrome(service=service, options=chrome_options)
 
 
 def main() -> None:

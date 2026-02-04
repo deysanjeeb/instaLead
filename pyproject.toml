@@ -9,4 +9,5 @@ dependencies = [
     "load-dotenv>=0.1.0",
     "requests>=2.32.4",
     "selenium>=4.34.2",
+    "webdriver-manager>=4.0.2",
 ]

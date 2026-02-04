@@ -2,6 +2,8 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.service import Service
+from webdriver_manager.chrome import ChromeDriverManager
 import time
 import re
 import csv
@@ -90,17 +92,73 @@ def get_profile_info(driver, profile_url):
     following = "Not found"
 
     try:
+        # Strategy 1: Find links by href pattern (original method)
         followers_link = soup.find("a", href=lambda href: href and "followers" in href)
-        if followers_link:
-            followers_span = followers_link.find("span", {"class": "x5n08af"})
-            if followers_span:
-                followers = parse_count(followers_span.get("title", ""))
-
         following_link = soup.find("a", href=lambda href: href and "following" in href)
-        if following_link:
-            following_span = following_link.find("span", {"class": "x5n08af"})
-            if following_span:
-                following = parse_count(following_span.get_text(strip=True))
+
+        # Strategy 2: If not found, look for links containing "followers"/"following" in text
+        if not followers_link or not following_link:
+            all_links = soup.find_all("a", href=True)
+            for link in all_links:
+                link_text = link.get_text(strip=True).lower()
+                if not followers_link and "followers" in link_text:
+                    followers_link = link
+                if not following_link and "following" in link_text:
+                    following_link = link
+
+        # Strategy 3: Look for common Instagram button/section patterns
+        # Instagram often uses ul/li structures for these stats
+        if not followers_link or not following_link:
+            for ul in soup.find_all("ul"):
+                links = ul.find_all("a")
+                if len(links) >= 2:
+                    texts = [l.get_text(strip=True).lower() for l in links]
+                    for i, text in enumerate(texts):
+                        if not followers_link and "followers" in text:
+                            followers_link = links[i]
+                        if not following_link and "following" in text:
+                            following_link = links[i]
+
+        # Dynamic extraction function that tries multiple strategies
+        def extract_count(link, is_followers=True):
+            if not link:
+                return "Not found"
+
+            # Strategy 1: Try to find span with title attribute (usually used for followers)
+            for span in link.find_all("span"):
+                if span.get("title"):
+                    return parse_count(span["title"])
+
+            # Strategy 2: Try to find any span with numeric content
+            for span in link.find_all("span"):
+                text = span.get_text(strip=True)
+                # Check if text looks like a count (contains digits, k, m, or comma)
+                if text and any(c.isdigit() for c in text) and len(text) < 20:
+                    # Additional validation: should contain mostly numbers/digits with optional k/m/comma
+                    cleaned = text.lower().replace(",", "").replace(".", "").replace("k", "").replace("m", "")
+                    if cleaned.strip().isdigit():
+                        return parse_count(text)
+
+            # Strategy 3: Get all text content from the link and parse
+            link_text = link.get_text(strip=True)
+            if link_text:
+                # Split by common separators and check each part
+                parts = link_text.replace("\n", " ").split()
+                for part in parts:
+                    if part and any(c.isdigit() for c in part):
+                        return parse_count(part)
+
+            # Strategy 4: Check for meta tags or other elements
+            # Look for any element within the link that might contain the count
+            for elem in link.find_all(recursive=False):
+                text = elem.get_text(strip=True)
+                if text and any(c.isdigit() for c in text):
+                    return parse_count(text)
+
+            return "Not found"
+
+        followers = extract_count(followers_link, is_followers=True)
+        following = extract_count(following_link, is_followers=False)
 
     except Exception as e:
         print(f"Error parsing followers/following: {e}")
@@ -259,8 +317,9 @@ def upload_to_grist(api_key, server, doc_id, table_name, data):
 
 if __name__ == "__main__":
     chrome_options = Options()
-    chrome_options.add_experimental_option("debuggerAddress", "127.0.0.1:9222")
-    driver = webdriver.Chrome(options=chrome_options)
+    chrome_options.add_experimental_option("debuggerAddress", "127.0.0.1:9122")
+    service = Service(ChromeDriverManager().install())
+    driver = webdriver.Chrome(service=service, options=chrome_options)
 
     query = input("Enter your search query (e.g., 'real estate agents in new york'): ")
     start_page = int(input("Enter the starting page number: "))
