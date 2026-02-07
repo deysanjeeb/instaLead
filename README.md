@@ -75,7 +75,7 @@ google-chrome --remote-debugging-port=9222 --user-data-dir=/tmp/selenium
 
 ### Verify Remote Debugging is Working
 
-After starting Chrome, open http://localhost:9222/json in a browser tab. You should see a JSON response with browser information.
+After starting Chrome, open http://localhost9222/json in a browser tab. You should see a JSON response with browser information.
 
 ## Usage
 
