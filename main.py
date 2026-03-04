@@ -10,9 +10,63 @@ import csv
 import os
 from bs4 import BeautifulSoup
 import requests
+
+
+import gspread
+from google.oauth2.service_account import Credentials
+
+def write_to_google_sheets(data):
+    if not data:
+        return
+
+    scopes = [
+        "https://www.googleapis.com/auth/spreadsheets",
+        "https://www.googleapis.com/auth/drive"
+    ]
+
+    creds = Credentials.from_service_account_file(
+        "credentials.json",
+        scopes=scopes
+    )
+
+    client = gspread.authorize(creds)
+    spreadsheet = client.open_by_key("1afb5AC5JnNDa55NcEALHccJOXjqX4Ki3BDXpfdBt-i0")
+    worksheet = spreadsheet.sheet1
+
+    HEADERS = ["Name", "Website", "Followers", "Following", "Emails", "Phones"]
+
+    if not worksheet.row_values(1):
+        worksheet.append_row(HEADERS)
+
+    existing_data = worksheet.get_all_records()
+
+    # FIX: use "Name" to match sheet header exactly
+    existing_names = {row["Name"] for row in existing_data if "Name" in row}
+
+    rows_to_append = []
+
+    for item in data:
+        if item.get("name") not in existing_names:
+            row = [
+                item.get("name", ""),        # map lowercase dict key
+                item.get("website", ""),
+                item.get("followers", ""),
+                item.get("following", ""),
+                item.get("emails", ""),
+                item.get("phones", "")
+            ]
+            rows_to_append.append(row)
+
+    if rows_to_append:
+        worksheet.append_rows(rows_to_append)
+        print("Uploaded", len(rows_to_append), "new rows.")
+    else:
+        print("No new rows to append.")
+    
 from load_dotenv import load_dotenv
 
 load_dotenv()
+
 GRIST_API_KEY = os.getenv("GRIST_API_KEY")
 GRIST_DOC_ID = os.getenv("GRIST_DOC_ID")
 
@@ -277,42 +331,8 @@ def resolve_profile_url(driver, url):
     return driver.current_url or profile_url
 
 
-def upload_to_grist(api_key, server, doc_id, table_name, data):
-    """Uploads data to a Grist database using REST API."""
-    headers = {"Authorization": f"Bearer {api_key}"}
+#defgirst bloc was here
 
-    try:
-        # List tables to check if the table exists
-        list_tables_url = f"{server}/api/docs/{doc_id}/tables"
-        response = requests.get(list_tables_url, headers=headers)
-        response.raise_for_status()
-        tables = response.json()["tables"]
-        # Capitalize the first letter of the table name
-        table_name = table_name.capitalize()
-
-        if table_name not in [t["id"] for t in tables]:
-            print(f"Table '{table_name}' not found in Grist document. Creating it...")
-            create_table_url = f"{server}/api/docs/{doc_id}/tables"
-            columns = [{"id": key} for key in data[0].keys()]
-            payload = {"tables": [{"id": table_name, "columns": columns}]}
-            response = requests.post(create_table_url, headers=headers, json=payload)
-            response.raise_for_status()
-            print(f"Table '{table_name}' created successfully.")
-
-        # Prepare records for upload
-        records_to_upload = [{"fields": item} for item in data]
-        add_records_url = f"{server}/api/docs/{doc_id}/tables/{table_name}/records"
-        response = requests.post(
-            add_records_url, headers=headers, json={"records": records_to_upload}
-        )
-        response.raise_for_status()
-
-        print(f"Successfully uploaded {len(data)} records to Grist.")
-
-    except requests.exceptions.RequestException as e:
-        print(f"An error occurred while communicating with Grist: {e}")
-    except Exception as e:
-        print(f"An unexpected error occurred during Grist upload: {e}")
 
 
 if __name__ == "__main__":
@@ -388,14 +408,11 @@ if __name__ == "__main__":
 
             writer.writerows(all_leads)
         print(f"\nSuccessfully saved {len(all_leads)} leads to {filename}")
+        
+        write_to_google_sheets(all_leads)
+        print("Sent leads to Google Sheets.")
 
-    # Upload to Grist
-    # upload_grist = input("\nUpload to Grist? (y/n): ").lower()
-    # if upload_grist == "y":
-    grist_server = "https://docs.getgrist.com"
-    grist_table_name = query.replace(" ", "_")
-    upload_to_grist(
-        GRIST_API_KEY, grist_server, GRIST_DOC_ID, grist_table_name, all_leads
-    )
+    # Upload to Google Sheets
+    
 
     # The browser is not closed, as it's a shared session.
